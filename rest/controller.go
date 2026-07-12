@@ -3,6 +3,7 @@ package rest
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -38,7 +39,8 @@ func (h *BillHandler) getById(c *gin.Context) {
 	case errors.Is(err, domain.ErrNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"error": domain.ErrNotFound.Error()})
 	case err != nil:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		log.Printf("500 Internal Server Error [GET /bills/%d]: %v", uri.ID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server internal error"})
 	default:
 		c.JSON(http.StatusOK, res)
 	}
@@ -53,7 +55,8 @@ func (h *BillHandler) save(c *gin.Context) {
 	}
 
 	if err := h.svc.Save(c, &entity); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		log.Printf("500 Internal Server Error [POST /bills]: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "server internal error"})
 		return
 	}
 	c.JSON(http.StatusCreated, entity)
