@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
+	"github.com/redis/go-redis/v9"
 	"github.com/samz/billing/billing"
 	"github.com/samz/billing/repo"
 	"github.com/samz/billing/rest"
@@ -44,9 +45,15 @@ func main() {
 		}
 	}()
 
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     os.Getenv("REDIS_HOST") + ":" + os.Getenv("REDIS_PORT"),
+		Password: "",
+		DB:       0,
+	})
+
 	r := gin.Default()
 
-	repository := repo.NewBillRepository(dbConn)
+	repository := repo.NewBillRepository(dbConn, rdb)
 	svc := billing.NewService(repository)
 	rest.RegisterHandlers(r, svc)
 	r.Run()
