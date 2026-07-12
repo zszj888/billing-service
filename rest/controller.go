@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -9,7 +10,8 @@ import (
 )
 
 type BillService interface {
-	GetByIdSvc(c context.Context, id int64) domain.BillEntity
+	GetByIdSvc(c context.Context, id int64) (domain.BillEntity, error)
+	Save(c context.Context, bill *domain.BillEntity) error
 }
 type BillHandler struct {
 	svc BillService
@@ -17,7 +19,8 @@ type BillHandler struct {
 
 func RegisterHandlers(r *gin.Engine, svc BillService) {
 	h := &BillHandler{svc: svc}
-	r.GET("/bill/:id", h.getById)
+	r.GET("/bills/:id", h.getById)
+	r.POST("/bills", h.save)
 }
 
 type Uri struct {
@@ -30,5 +33,28 @@ func (h *BillHandler) getById(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, h.svc.GetByIdSvc(c, uri.ID))
+	res, err := h.svc.GetByIdSvc(c, uri.ID)
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": domain.ErrNotFound.Error()})
+	case err != nil:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	default:
+		c.JSON(http.StatusOK, res)
+	}
+
+}
+
+func (h *BillHandler) save(c *gin.Context) {
+	entity := domain.BillEntity{}
+	if err := c.ShouldBindJSON(&entity); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.svc.Save(c, &entity); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, entity)
 }
